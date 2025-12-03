@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
+import { 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  signOut, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword,
+  updateProfile,
+  updatePassword 
+} from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { auth, googleProvider, db } from './firebase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Flame, BarChart2, User, Home, Check, X, 
   ChevronLeft, ChevronRight, Settings, Plus, 
-  Sun, Moon, Edit3, Clock, Trophy
+  Sun, Moon, Edit3, Clock, Trophy, Mail, Lock, Key
 } from 'lucide-react';
 import Calendar from 'react-calendar';
 import { 
@@ -54,17 +62,91 @@ const Navbar = () => {
 
 // 2. Login
 const Login = () => {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+
+  const handleGoogle = async () => {
+    try { await signInWithPopup(auth, googleProvider); } 
+    catch (err) { setError(err.message); }
+  };
+
+  const handleEmailAuth = async (e) => {
+    e.preventDefault();
+    setError("");
+    try {
+      if (isSignUp) {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(userCredential.user, { displayName: name || "Seeker" });
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+    } catch (err) {
+      if (err.code === 'auth/wrong-password') setError("Incorrect password.");
+      else if (err.code === 'auth/user-not-found') setError("No account found.");
+      else if (err.code === 'auth/email-already-in-use') setError("Email already registered.");
+      else setError(err.message);
+    }
+  };
+
   return (
-    <div className="h-screen flex flex-col items-center justify-center bg-[var(--bg-primary)] p-6 relative overflow-hidden transition-colors duration-500">
-      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="z-10 text-center">
-        <h1 className="text-6xl font-serif text-[var(--accent)] mb-2 tracking-tighter text-glow">NaamJaap</h1>
-        <p className="text-[var(--text-secondary)] mb-10 text-lg font-light tracking-wide">Quantify your Divinity.</p>
-        <button 
-          onClick={() => signInWithPopup(auth, googleProvider)}
-          className="bg-[var(--accent)] text-white font-medium py-4 px-12 rounded-full shadow-glow transition-all transform active:scale-95"
-        >
-          Begin Journey
-        </button>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--bg-primary)] p-6 relative overflow-hidden transition-colors duration-500">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="z-10 text-center w-full max-w-sm">
+        <h1 className="text-5xl font-serif text-[var(--accent)] mb-2 tracking-tighter text-glow">NaamJaap</h1>
+        <p className="text-[var(--text-secondary)] mb-8 font-light">Quantify your Divinity.</p>
+        
+        <div className="glass-card p-6 rounded-[2rem] bg-[var(--bg-secondary)] border border-[var(--glass-border)]">
+           <form onSubmit={handleEmailAuth} className="flex flex-col gap-4">
+             {isSignUp && (
+               <div className="relative">
+                 <User className="absolute left-4 top-3.5 text-[var(--text-secondary)]" size={20}/>
+                 <input 
+                   type="text" placeholder="Your Name" value={name} onChange={e=>setName(e.target.value)}
+                   className="w-full bg-[var(--bg-primary)] text-[var(--text-primary)] py-3 pl-12 pr-4 rounded-xl outline-none focus:border-[var(--accent)] border border-transparent"
+                 />
+               </div>
+             )}
+             <div className="relative">
+               <Mail className="absolute left-4 top-3.5 text-[var(--text-secondary)]" size={20}/>
+               <input 
+                 type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)}
+                 className="w-full bg-[var(--bg-primary)] text-[var(--text-primary)] py-3 pl-12 pr-4 rounded-xl outline-none focus:border-[var(--accent)] border border-transparent"
+               />
+             </div>
+             <div className="relative">
+               <Lock className="absolute left-4 top-3.5 text-[var(--text-secondary)]" size={20}/>
+               <input 
+                 type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)}
+                 className="w-full bg-[var(--bg-primary)] text-[var(--text-primary)] py-3 pl-12 pr-4 rounded-xl outline-none focus:border-[var(--accent)] border border-transparent"
+               />
+             </div>
+             
+             {error && <p className="text-red-500 text-xs text-left px-2">{error}</p>}
+
+             <button type="submit" className="bg-[var(--accent)] text-white font-bold py-3 rounded-xl shadow-glow hover:opacity-90 transition-opacity">
+               {isSignUp ? "Create Account" : "Sign In"}
+             </button>
+           </form>
+
+           <div className="my-4 flex items-center gap-2">
+             <div className="h-[1px] bg-[var(--text-secondary)] opacity-20 flex-1"></div>
+             <span className="text-xs text-[var(--text-secondary)]">OR</span>
+             <div className="h-[1px] bg-[var(--text-secondary)] opacity-20 flex-1"></div>
+           </div>
+
+           <button onClick={handleGoogle} className="w-full bg-[var(--bg-primary)] text-[var(--text-primary)] font-medium py-3 rounded-xl border border-[var(--glass-border)] hover:bg-[var(--bg-secondary)] transition-colors">
+             Continue with Google
+           </button>
+
+           <p className="mt-6 text-sm text-[var(--text-secondary)]">
+             {isSignUp ? "Already have an account? " : "New to NaamJaap? "}
+             <button onClick={() => setIsSignUp(!isSignUp)} className="text-[var(--accent)] font-bold hover:underline">
+               {isSignUp ? "Sign In" : "Sign Up"}
+             </button>
+           </p>
+        </div>
       </motion.div>
     </div>
   );
@@ -340,7 +422,7 @@ const HomePage = ({ user, userData, updateCount, changeNaam, naams, setGoal, man
         )}
       </AnimatePresence>
 
-      {/* --- SETTINGS SHEET --- */}
+      {/* --- SETTINGS SHEET (RESTORED GOAL SETTING) --- */}
       <AnimatePresence>
         {showSettings && (
           <motion.div 
@@ -348,20 +430,45 @@ const HomePage = ({ user, userData, updateCount, changeNaam, naams, setGoal, man
             className="fixed inset-x-0 bottom-0 bg-[var(--bg-secondary)] rounded-t-[3rem] z-[60] p-6 shadow-[0_-10px_60px_rgba(0,0,0,0.5)] h-[60vh] flex flex-col border-t border-[var(--glass-border)]"
           >
              <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-serif text-[var(--text-primary)]">Mantras</h3>
+              <h3 className="text-2xl font-serif text-[var(--text-primary)]">Settings</h3>
               <button onClick={() => setShowSettings(false)} className="bg-[var(--bg-primary)] p-2 rounded-full text-[var(--text-secondary)]"><X/></button>
             </div>
-            <div className="overflow-y-auto flex-1 pb-10 hide-scrollbar space-y-3">
-                {naams.map((naam, idx) => (
-                    <button 
-                    key={idx}
-                    onClick={() => { changeNaam(naam); setShowSettings(false); }}
-                    className={`w-full p-5 rounded-2xl text-left flex justify-between items-center transition-all ${userData?.currentNaam === naam ? 'bg-[var(--accent)] text-white shadow-glow' : 'bg-[var(--bg-primary)] text-[var(--text-primary)]'}`}
-                    >
-                    <span className="font-medium text-lg">{naam}</span>
-                    {userData?.currentNaam === naam && <Check size={20}/>}
-                    </button>
-                ))}
+            
+            <div className="overflow-y-auto flex-1 pb-10 hide-scrollbar">
+                {/* 1. Goal Setting (Restored) */}
+                <div className="mb-8">
+                   <h4 className="text-[var(--text-secondary)] text-xs uppercase tracking-widest mb-4">Daily Goal</h4>
+                   <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
+                     {[11, 21, 51, 108, 1008].map(num => (
+                       <button
+                         key={num}
+                         onClick={() => setGoal(num)}
+                         className={`px-6 py-3 rounded-2xl font-bold transition-all whitespace-nowrap ${
+                           goal === num 
+                           ? 'bg-[var(--accent)] text-white shadow-glow' 
+                           : 'bg-[var(--bg-primary)] text-[var(--text-secondary)] border border-[var(--glass-border)]'
+                         }`}
+                       >
+                         {num}
+                       </button>
+                     ))}
+                   </div>
+                </div>
+
+                {/* 2. Mantra List */}
+                <div className="space-y-3">
+                    <h4 className="text-[var(--text-secondary)] text-xs uppercase tracking-widest mb-2">Mantras</h4>
+                    {naams.map((naam, idx) => (
+                        <button 
+                        key={idx}
+                        onClick={() => { changeNaam(naam); setShowSettings(false); }}
+                        className={`w-full p-5 rounded-2xl text-left flex justify-between items-center transition-all ${userData?.currentNaam === naam ? 'bg-[var(--accent)] text-white shadow-glow' : 'bg-[var(--bg-primary)] text-[var(--text-primary)]'}`}
+                        >
+                        <span className="font-medium text-lg">{naam}</span>
+                        {userData?.currentNaam === naam && <Check size={20}/>}
+                        </button>
+                    ))}
+                </div>
             </div>
           </motion.div>
         )}
@@ -504,6 +611,9 @@ const StatsPage = ({ userData }) => {
 // 5. Profile Page
 const ProfilePage = ({ user, userData, addNaam, toggleTheme, isDark }) => {
   const [newNaam, setNewNaam] = useState("");
+  const [showPassChange, setShowPassChange] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [msg, setMsg] = useState("");
 
   const handleAdd = () => {
     if (newNaam.trim()) {
@@ -512,11 +622,25 @@ const ProfilePage = ({ user, userData, addNaam, toggleTheme, isDark }) => {
     }
   };
 
+  const handlePasswordChange = async () => {
+    try {
+      await updatePassword(user, newPassword);
+      setMsg("Password updated successfully!");
+      setShowPassChange(false);
+      setNewPassword("");
+    } catch (error) {
+      if (error.code === 'auth/requires-recent-login') setMsg("Please log out and log in again to change password.");
+      else setMsg(error.message);
+    }
+  };
+
   return (
     <div className="min-h-screen pb-32 p-6 transition-colors duration-500">
       <div className="mt-12 flex flex-col items-center">
         <div className="w-28 h-28 rounded-full p-1 bg-gradient-to-br from-[var(--accent)] to-[var(--accent-dim)] shadow-glow mb-6">
-          <img src={user.photoURL} alt="Profile" className="w-full h-full rounded-full border-4 border-[var(--bg-primary)]" />
+          <div className="w-full h-full rounded-full border-4 border-[var(--bg-primary)] overflow-hidden bg-[var(--bg-secondary)] flex items-center justify-center">
+             {user.photoURL ? <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover"/> : <span className="text-4xl text-[var(--accent)]">{user.displayName?.[0] || "U"}</span>}
+          </div>
         </div>
         <h2 className="text-3xl font-serif text-[var(--text-primary)]">{user.displayName}</h2>
         <p className="text-sm text-[var(--text-secondary)]">{user.email}</p>
@@ -532,6 +656,26 @@ const ProfilePage = ({ user, userData, addNaam, toggleTheme, isDark }) => {
                 {isDark ? 'Divine Dark' : 'Apple Light'}
             </span>
         </button>
+
+        {/* Change Password Block */}
+        <div className="glass-card rounded-3xl p-5 bg-[var(--bg-secondary)]">
+            <button onClick={() => setShowPassChange(!showPassChange)} className="w-full flex justify-between items-center text-[var(--text-primary)] font-medium">
+               <span className="flex items-center gap-3"><Key size={20} className="text-[var(--accent)]"/> Change Password</span>
+               <ChevronRight size={20} className={`text-[var(--text-secondary)] transition-transform ${showPassChange ? 'rotate-90' : ''}`}/>
+            </button>
+            <AnimatePresence>
+                {showPassChange && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                        <div className="pt-4 flex flex-col gap-3">
+                           <input type="password" placeholder="New Password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} 
+                           className="w-full bg-[var(--bg-primary)] text-[var(--text-primary)] p-3 rounded-xl outline-none focus:border-[var(--accent)] border border-transparent"/>
+                           <button onClick={handlePasswordChange} className="bg-[var(--accent)] text-white py-2 rounded-xl font-bold shadow-glow text-sm">Update</button>
+                           {msg && <p className="text-xs text-[var(--accent)] text-center">{msg}</p>}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
 
         <div className="glass-card rounded-3xl p-6 bg-[var(--bg-secondary)]">
           <h3 className="text-lg text-[var(--accent)] font-serif mb-4 flex items-center gap-2">
@@ -626,25 +770,20 @@ export default function App() {
     newData.history[todayKey] = currentDayData;
 
     // --- SELF-HEALING STREAK LOGIC ---
-    // Even if lastActiveDate is today, we check if streak is broken (0)
     if (amount > 0) {
         if (newData.lastActiveDate === todayKey) {
-            // Already active today. 
-            // BUT: If streak is 0 (due to bug), fix it to at least 1, or 2 if yesterday exists.
             if (!newData.streak || newData.streak === 0) {
                 const yesterdayEntry = newData.history[yesterdayKey];
                 let activeYesterday = false;
                 if (typeof yesterdayEntry === 'number') activeYesterday = yesterdayEntry > 0;
                 else if (yesterdayEntry && typeof yesterdayEntry === 'object') activeYesterday = Object.values(yesterdayEntry).reduce((a,b)=>a+b,0) > 0;
                 
-                if (activeYesterday) newData.streak = 2; // Recover consecutive
-                else newData.streak = 1; // Start fresh
+                if (activeYesterday) newData.streak = 2; 
+                else newData.streak = 1; 
             }
         } else if (newData.lastActiveDate === yesterdayKey) {
-            // Consecutive day normal increment
             newData.streak = (newData.streak || 0) + 1;
         } else {
-            // Missed a day or first time
             newData.streak = 1;
         }
         newData.maxStreak = Math.max(newData.streak, newData.maxStreak || 0);
